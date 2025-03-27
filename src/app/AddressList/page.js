@@ -4,25 +4,22 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Card,
-  CardContent,
-  CardActions,
-  Typography,
-  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   CircularProgress,
   Alert,
-  Grid,
+  TextField,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Box,
+  Button,
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 
@@ -34,8 +31,7 @@ export default function AddressList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingAddress, setEditingAddress] = useState(null);
-  const [countries, setCountries] = useState([]);
-  const [selectedCountry, setSelectedCountry] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (status === "loading") return;
@@ -55,10 +51,6 @@ export default function AddressList() {
       const data = await res.json();
       setAddresses(data);
       setFilteredAddresses(data);
-
-      // Extract unique countries
-      const uniqueCountries = [...new Set(data.map((addr) => addr.country))];
-      setCountries(uniqueCountries);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -104,55 +96,75 @@ export default function AddressList() {
     }
   };
 
-  const handleCountryChange = (event) => {
-    const selected = event.target.value;
-    setSelectedCountry(selected);
-    if (selected) {
-      setFilteredAddresses(addresses.filter((addr) => addr.country === selected));
-    } else {
-      setFilteredAddresses(addresses);
-    }
+  const handleSearch = (event) => {
+    const query = event.target.value.toLowerCase();
+    setSearchQuery(query);
+    setFilteredAddresses(
+      addresses.filter(
+        (addr) =>
+          addr.street.toLowerCase().includes(query) ||
+          addr.city.toLowerCase().includes(query) ||
+          addr.state.toLowerCase().includes(query) ||
+          addr.country.toLowerCase().includes(query) ||
+          addr.zipCode.toLowerCase().includes(query)
+      )
+    );
   };
 
   if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", my: 10 }} />;
   if (error) return <Alert severity="error">{error}</Alert>;
 
   return (
-    <Box sx={{ maxWidth: "1200px", mx: "auto", p: 4 }}>
-      <Typography variant="h4" gutterBottom align="center" sx={{ fontWeight: "bold" }}>
-        Your Addresses
-      </Typography>
+    <Paper sx={{ maxWidth: "1200px", mx: "auto", p: 4, fontWeight: "bold" }}>
+      <TextField
+        fullWidth
+        label="Search By Country or City"
+        value={searchQuery}
+        onChange={handleSearch}
+        sx={{ mb: 4 }}
+      />
 
-      {/* Country Filter Dropdown */}
-      <FormControl fullWidth sx={{ mb: 3 }}>
-        <InputLabel>Select Country</InputLabel>
-        <Select value={selectedCountry} onChange={handleCountryChange}>
-          <MenuItem value="">All Countries</MenuItem>
-          {countries.map((country, index) => (
-            <MenuItem key={index} value={country}>
-              {country}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {filteredAddresses.length === 0 ? (
-        <Typography color="textSecondary" align="center">
-          No addresses found.
-        </Typography>
-      ) : (
-        <Grid container spacing={3}>
-          {filteredAddresses.map((address) => (
-            <Grid item xs={12} sm={6} md={4} key={address.id}>
-              <AddressCard
-                address={address}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: "bold" }}>Street</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>City</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>State</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Country</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Zip Code</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredAddresses.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ fontWeight: "bold" }}>
+                  No addresses found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredAddresses.map((address) => (
+                <TableRow key={address.id}>
+                  <TableCell>{address.street}</TableCell>
+                  <TableCell>{address.city}</TableCell>
+                  <TableCell>{address.state}</TableCell>
+                  <TableCell>{address.country}</TableCell>
+                  <TableCell>{address.zipCode}</TableCell>
+                  <TableCell>
+                    <IconButton color="primary" onClick={() => handleEdit(address)}>
+                      <Edit />
+                    </IconButton>
+                    <IconButton color="error" onClick={() => handleDelete(address.id)}>
+                      <Delete />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {editingAddress && (
         <EditModal
@@ -161,41 +173,7 @@ export default function AddressList() {
           onSave={handleUpdate}
         />
       )}
-    </Box>
-  );
-}
-
-function AddressCard({ address, onEdit, onDelete }) {
-  return (
-    <Card
-      elevation={3}
-      sx={{
-        borderRadius: "10px",
-        position: "relative",
-        transition: "transform 0.2s",
-        "&:hover": { transform: "scale(1.02)" },
-      }}
-    >
-      <CardContent>
-        <Typography variant="h6" fontWeight="bold" gutterBottom>
-          {address.street}
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          {address.city}, {address.state}, {address.country}
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Zip Code: {address.zipCode}
-        </Typography>
-      </CardContent>
-      <CardActions sx={{ display: "flex", justifyContent: "space-between" }}>
-        <IconButton color="primary" onClick={() => onEdit(address)}>
-          <Edit />
-        </IconButton>
-        <IconButton color="error" onClick={() => onDelete(address.id)}>
-          <Delete />
-        </IconButton>
-      </CardActions>
-    </Card>
+    </Paper>
   );
 }
 
